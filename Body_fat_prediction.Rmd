@@ -1,0 +1,292 @@
+---
+title: "Body Fat prediction and Feature Engineering"
+author: "Rohan Harchandani, Sourav Saha, Sobin varghese"
+date: "April 06 2022"
+output:
+  word_document:
+    toc: yes
+---
+# **Objective**
+
+# **Importing necessary libraries**
+
+```{r}
+library(psych)
+library(ggplot2)
+library(DataExplorer)
+library(corrplot)
+library(rpart)
+library(rpart.plot)
+library(dplyr)
+library(caTools)
+library(RColorBrewer)
+library(rattle)
+library(psych)
+```
+
+# **Importing Dataset**
+
+```{r}
+bodyData = read.csv(file.choose())
+```
+
+# **Exploratory data analysis using different methods**
+
+## **Manual method**
+```{r}
+# First five rows from the dataset.
+head(bodyData,5)
+```
+
+```{r}
+# Last five rows from the dataset.
+tail(bodyData,5)
+```
+We can see the data is not consistent and we can conclude that data is well seperated.
+
+```{r}
+summary(bodyData)
+```
+Summary of the dataset. It gives five summary statistic of each variable.
+
+```{r}
+dim(bodyData)
+```
+Dimension of dataset. Number of rows: 252 and Number of columns: 15.
+
+```{r}
+# Structure of dataset.
+describe(bodyData)
+```
+
+```{r}
+colnames(bodyData)
+```
+Column names of dataset. "Density" "BodyFat" "Age" "Weight" "Height" "Neck" "Chest" "Abdomen" "Hip" "Thigh" "Knee" "Ankle" "Biceps" "Forearm" "Wrist" "WeightGroup"
+
+
+### Relation graphs of variable.
+```{r}
+ggplot(bodyData,aes(x = Weight,y = BodyFat))+geom_point()+geom_smooth()
+ggplot(bodyData,aes(x = Chest,y = BodyFat))+geom_point()+geom_smooth()
+ggplot(bodyData,aes(x = Biceps,y = BodyFat))+geom_point()+geom_smooth()
+ggplot(bodyData,aes(x = Age,y = BodyFat))+geom_point()+geom_smooth()
+ggplot(bodyData,aes(x = Height,y = BodyFat))+geom_point()+geom_smooth()
+ggplot(bodyData,aes(x = Neck,y = BodyFat))+geom_point()+geom_smooth()
+ggplot(bodyData,aes(x = Abdomen,y = BodyFat))+geom_point()+geom_smooth()
+ggplot(bodyData,aes(x = Hip,y = BodyFat))+geom_point()+geom_smooth()
+ggplot(bodyData,aes(x = Thigh,y = BodyFat))+geom_point()+geom_smooth()
+ggplot(bodyData,aes(x = Knee,y = BodyFat))+geom_point()+geom_smooth()
+ggplot(bodyData,aes(x = Ankle,y = BodyFat))+geom_point()+geom_smooth()
+ggplot(bodyData,aes(x = Forearm,y = BodyFat))+geom_point()+geom_smooth()
+ggplot(bodyData,aes(x = Wrist,y = BodyFat))+geom_point()+geom_smooth()
+```
+```{r}
+ggplot(bodyData,aes(x=Height))+geom_histogram(alpha=0.9)+theme(plot.title=element_text(size=3))
+```
+```{r}
+length(unique(bodyData$Age))
+```
+```{r}
+unique(bodyData$Age)
+```
+```{r}
+ggplot(bodyData,aes(Age,BodyFat))+geom_point(aes(x=Age,y=BodyFat,color=BodyFat,size=Age))
+```
+
+```{r}
+ggplot(bodyData,aes(Age,Weight))+geom_jitter() #No correlation b/t
+```
+
+```{r}
+ggplot(bodyData) + geom_density(aes(Weight))
+```
+
+```{r}
+ggplot(bodyData,aes(Weight,Height))+geom_jitter(aes(X=Weight,y=Height,color=Weight,size=Height))
+```
+```{r}
+ggplot(bodyData,aes(Weight,Height))+geom_jitter()
+```
+Which patients have the highest and lowest bodyfat. Top5/bottom5
+
+```{r}
+bodyData[order(bodyData$BodyFat,decreasing=T)[1:5],]
+```
+
+```{r}
+bodyData[order(bodyData$BodyFat,decreasing=F)[1:5],]
+```
+
+checking if there is any null values in dataset
+
+```{r}
+which(is.null(bodyData))
+```
+there is no  null value n the dataset 
+
+### Correlational matrix and plot
+```{r}
+cor(bodyData)
+corrplot(cor(bodyData),method="number")
+```
+## ** Creating EDA report using "DataExplorer" library.**
+
+```{r}
+create_report(bodyData)
+```
+# **Pre-processing of data.*
+
+## **Checking and removing of outliers using box plot method.**
+```{r}
+boxplot(bodyData)
+```
+As we can see there are alot of outliers in the every variables of the dataset. "Density" "BodyFat" "Age" "Weight" "Height" "Neck" "Chest" "Abdomen" "Hip" "Thigh" "Knee" "Ankle" "Biceps" "Forearm" "Wrist" "WeightGroup".
+
+##### Terminilogies of the box plots.
+-The interquartile range (IQR) is a measure of variability, based on dividing a data set into quartiles.
+-The interquartile range (IQR) is a measurement of the spread of values in the middle 50%.
+-Q1 is the "middle" value in the first half of the rank-ordered data set.
+-Q3 is the "middle" value in the second half of the rank-ordered data set.
+
+```{r}
+#find Q1, Q3, and interquartile range for values in column Bodyfat
+Q1 <- quantile(bodyData$BodyFat, .25)
+Q3 <- quantile(bodyData$BodyFat, .75)
+IQR <- IQR(bodyData$BodyFat)
+#only keep rows in dataframe that have values within 1.5*IQR of Q1 and Q3
+df1<- subset(bodyData, bodyData$BodyFat> (Q1 - 1.5*IQR) & bodyData$BodyFat< (Q3 + 1.5*IQR))
+boxplot(df1)
+```
+
+
+```{r}
+Q1 <- quantile(df1$Weight, .25)
+Q3 <- quantile(df1$Weight, .75)
+IQR <- IQR(df1$Weight)
+df2<- subset(df1, df1$Weight> (Q1 - 1.5*IQR) & df1$Weight< (Q3 + 1.5*IQR))
+boxplot(df2)
+```
+
+
+```{r}
+Q1 <- quantile(df2$Neck, .25)
+Q3 <- quantile(df2$Neck, .75)
+IQR <- IQR(df2$Neck)
+df3 <- subset(df2, df2$Neck> (Q1 - 1.5*IQR) & df2$Neck< (Q3 + 1.5*IQR))
+boxplot(df3)
+```
+
+
+```{r}
+Q1 <- quantile(df3$Height, .25)
+Q3 <- quantile(df3$Height, .75)
+IQR <- IQR(df3$Height)
+df4 <- subset(df3, df3$Height> (Q1 - 1.5*IQR) & df3$Height< (Q3 + 1.5*IQR))
+boxplot(df4)
+```
+
+
+```{r}
+Q1 <- quantile(df4$Chest, .25)
+Q3 <- quantile(df4$Chest, .75)
+IQR <- IQR(df4$Chest)
+df5 <- subset(df4, df4$Chest> (Q1 - 1.5*IQR) & df4$Chest< (Q3 + 1.5*IQR))
+boxplot(df5)
+```
+
+
+```{r}
+Q1 <- quantile(df5$Hip, .25)
+Q3 <- quantile(df5$Hip, .75)
+IQR <- IQR(df5$Hip)
+df6 <- subset(df5, df5$Hip> (Q1 - 1.5*IQR) & df5$Hip< (Q3 + 1.5*IQR))
+boxplot(df6)
+```
+
+
+```{r}
+Q1 <- quantile(df6$Thigh, .25)
+Q3 <- quantile(df6$Thigh, .75)
+IQR <- IQR(df6$Thigh)
+df7 <- subset(df6,df6$Thigh> (Q1 - 1.5*IQR) & df6$Thigh< (Q3 + 1.5*IQR))
+boxplot(df7)
+```
+
+
+```{r}
+Q1 <- quantile(df7$Knee, .25)
+Q3 <- quantile(df7$Knee, .75)
+IQR <- IQR(df7$Knee)
+df8 <- subset(df7,df7$Knee> (Q1 - 1.5*IQR) & df7$Knee< (Q3 + 1.5*IQR))
+boxplot(df8)
+```
+
+```{r}
+Q1 <- quantile(df8$Ankle, .25)
+Q3 <- quantile(df8$Ankle, .75)
+IQR <- IQR(df8$Ankle)
+df9 <- subset(df8,df8$Ankle> (Q1 - 1.5*IQR) & df8$Ankle< (Q3 + 1.5*IQR))
+boxplot(df9)
+```
+```{r}
+Q1 <- quantile(df9$Forearm, .25)
+Q3 <- quantile(df9$Forearm, .75)
+IQR <- IQR(df9$Forearm)
+df10 <- subset(df9,df9$Forearm> (Q1 - 1.5*IQR) & df9$Forearm< (Q3 + 1.5*IQR))
+boxplot(df10)
+```
+```{r}
+Q1 <- quantile(df10$Wrist, .25)
+Q3 <- quantile(df10$Wrist, .75)
+IQR <- IQR(df10$Wrist)
+bodyData <- subset(df10,df10$Wrist> (Q1 - 1.5*IQR) & df10$Wrist< (Q3 + 1.5*IQR))
+boxplot(bodyData)
+```
+We cleaned the dataset by removing the outliers. Dataset name: "bodyData"
+
+
+# **Multi linear regression model.**
+```{r}
+bodyData$WeightGroup[bodyData$BodyFat < 18.5] = 1
+bodyData$WeightGroup[bodyData$BodyFat >= 18.5 & bodyData$BodyFat <25] = 2
+bodyData$WeightGroup[bodyData$BodyFat >= 25 & bodyData$BodyFat < 30] = 3
+bodyData$WeightGroup[bodyData$BodyFat >= 30 ] = 4
+
+weightType = c("Underweight", "Normalweight", "Overweight", "Obese")
+factor(bodyData$WeightGroup, labels = weightType)
+```
+
+```{r}
+fit = lm(BodyFat ~.,data = bodyData)
+```
+```{r}
+summary(fit)
+```
+Adjusted R-squared:  0.9745 
+
+# **Selection of final model using step() (Feature engineering).**
+
+The optimzed model can be obtained by selecting active predictors with Akaike information criterion(AIC) or Bayesan information criterion(BIC). Step function with backward method is used to select variables for the optimized subset models by the Akaike information criterion (AIC) for the given set of data.
+
+```{r}
+fit.featured = step(fit, scope = list(lower ~ Density), trace=0)
+
+summary(fit.featured)
+```
+
+
+# ** Comparing the old model and new model. **
+```{r}
+plot(fitted(fit) ~ fitted(fit.featured))
+abline(0,1)
+```
+```{r}
+cor(fitted(fit),fitted(fit.featured))
+```
+The change in the fitted values is relatively small, and the two sets of fitted values have correlation .99. So we conclude that the subset model and the full model provide essentially the same information about the value of the response given predicors.
+
+
+
+
+
